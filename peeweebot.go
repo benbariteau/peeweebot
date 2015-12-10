@@ -4,12 +4,15 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"log"
+	"math/rand"
 	"os"
 	"os/user"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"golang.org/x/net/context"
 	"golang.org/x/oauth2"
@@ -92,15 +95,39 @@ func getAllChildren(driveService *drive.Service, folder string) (list []*drive.C
 }
 
 func main() {
+	rand.Seed(time.Now().Unix())
 	ctx := context.Background()
 	driveService, err := getGoogleDriveService(ctx)
 	if err != nil {
-		log.Fatalf("Unable to get google drive service: %v", driveService)
+		log.Fatalf("Unable to get google drive service: %v", err)
 	}
 
 	fileList := getAllChildren(driveService, folderId)
 
-	for _, file := range fileList {
-		fmt.Println(file.Id)
+	fileNumber := rand.Intn(len(fileList))
+	fmt.Printf("selected %vth file\n", fileNumber)
+	selectedFile := fileList[fileNumber]
+
+	fileMetadata, err := driveService.Files.Get(selectedFile.Id).Do()
+	if err != nil {
+		log.Fatalf("Unable to get filemetadata: %v", err)
+	}
+
+	extension := fileMetadata.FileExtension
+
+	fileResponse, err := driveService.Files.Get(selectedFile.Id).Download()
+	if err != nil {
+		log.Fatalf("Unable to fetch file: %v", err)
+	}
+	defer fileResponse.Body.Close()
+
+	fd, err := os.Create("picture." + extension)
+	if err != nil {
+		log.Fatalf("Unable to open file for writing: %v", err)
+	}
+
+	n, err := io.Copy(fd, fileResponse.Body)
+	if err != nil {
+		log.Fatalf("Unable to write file to disk fully (%v bytes written): %v", n, err)
 	}
 }
