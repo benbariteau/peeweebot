@@ -18,6 +18,7 @@ import (
 )
 
 var configDir = flag.String("config", "~/.peeweebot/", "location of config directory")
+var folderId = "0B1SaB_OdyoZrVEhQR01WWXoxbjA"
 
 func getConfigDir() string {
 	usr, err := user.Current()
@@ -66,6 +67,30 @@ func getGoogleDriveService(ctx context.Context) (*drive.Service, error) {
 	)
 }
 
+func getAllChildren(driveService *drive.Service, folder string) (list []*drive.ChildReference) {
+	var pageToken string
+	for {
+		call := driveService.Children.List(folder)
+		if pageToken != "" {
+			call.PageToken(pageToken)
+		}
+
+		r, err := call.Do()
+		if err != nil {
+			log.Fatalf("Unable to retrieve files.", err)
+		}
+
+		list = append(list, r.Items...)
+
+		pageToken = r.NextPageToken
+
+		if pageToken == "" {
+			break
+		}
+	}
+	return
+}
+
 func main() {
 	ctx := context.Background()
 	driveService, err := getGoogleDriveService(ctx)
@@ -73,17 +98,9 @@ func main() {
 		log.Fatalf("Unable to get google drive service: %v", driveService)
 	}
 
-	r, err := driveService.Files.List().MaxResults(10).Do()
-	if err != nil {
-		log.Fatalf("Unable to retrieve files.", err)
-	}
+	fileList := getAllChildren(driveService, folderId)
 
-	fmt.Println("Files:")
-	if len(r.Items) > 0 {
-		for _, i := range r.Items {
-			fmt.Printf("%s (%s)\n", i.Title, i.Id)
-		}
-	} else {
-		fmt.Print("No files found.")
+	for _, file := range fileList {
+		fmt.Println(file.Id)
 	}
 }
