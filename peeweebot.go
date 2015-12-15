@@ -1,6 +1,8 @@
 package main
 
 import (
+	"bytes"
+	"encoding/base64"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -8,6 +10,7 @@ import (
 	"io/ioutil"
 	"log"
 	"math/rand"
+	"net/url"
 	"os"
 	"os/user"
 	"path/filepath"
@@ -137,36 +140,32 @@ func main() {
 	fmt.Printf("selected %vth file\n", fileNumber)
 	selectedFile := fileList[fileNumber]
 
-	fileMetadata, err := driveService.Files.Get(selectedFile.Id).Do()
-	if err != nil {
-		log.Fatalf("Unable to get filemetadata: %v", err)
-	}
-
-	extension := fileMetadata.FileExtension
-
 	fileResponse, err := driveService.Files.Get(selectedFile.Id).Download()
 	if err != nil {
 		log.Fatalf("Unable to fetch file: %v", err)
 	}
 	defer fileResponse.Body.Close()
 
-	fd, err := os.Create("picture." + extension)
-	if err != nil {
-		log.Fatalf("Unable to open file for writing: %v", err)
-	}
-	defer fd.Close()
-
-	n, err := io.Copy(fd, fileResponse.Body)
-	if err != nil {
-		log.Fatalf("Unable to write file to disk fully (%v bytes written): %v", n, err)
-	}
-
 	twitterApi := getTwitterClient()
 
-	tweet, err := twitterApi.PostTweet("test tweet", nil)
+	buffer := new(bytes.Buffer)
+	writer := base64.NewEncoder(base64.StdEncoding, buffer)
+
+	_, err = io.Copy(writer, fileResponse.Body)
+	if err != nil {
+		log.Fatalf("Unable to encode image as base64: %v", err)
+	}
+
+	media, err := twitterApi.UploadMedia(buffer.String())
+	if err != nil {
+		log.Fatalf("Unable to upload media: %v", err)
+	}
+
+	params := url.Values{}
+	params.Set("media_ids", media.MediaIDString)
+
+	_, err = twitterApi.PostTweet("", params)
 	if err != nil {
 		log.Fatalf("Unable to post tweet: %v", err)
 	}
-
-	fmt.Println(tweet)
 }
