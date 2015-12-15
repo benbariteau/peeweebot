@@ -14,6 +14,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/ChimeraCoder/anaconda"
 	"golang.org/x/net/context"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
@@ -94,6 +95,34 @@ func getAllChildren(driveService *drive.Service, folder string) (list []*drive.C
 	return
 }
 
+type TwitterStuff struct {
+	ConsumerKey       string
+	ConsumerSecret    string
+	AccessToken       string
+	AccessTokenSecret string
+}
+
+func getTwitterClient() *anaconda.TwitterApi {
+	fd, err := os.Open(filepath.Join(getConfigDir(), "twitter_stuff.json"))
+	if err != nil {
+		log.Fatalf("Unable to open twitter_stuff.json: %v", err)
+	}
+	defer fd.Close()
+
+	twitterStuff := TwitterStuff{}
+	err = json.NewDecoder(fd).Decode(&twitterStuff)
+	if err != nil {
+		log.Fatalf("Unable to decode twitter_stuff.json: %v", err)
+	}
+
+	anaconda.SetConsumerKey(twitterStuff.ConsumerKey)
+	anaconda.SetConsumerSecret(twitterStuff.ConsumerSecret)
+	return anaconda.NewTwitterApi(
+		twitterStuff.AccessToken,
+		twitterStuff.AccessTokenSecret,
+	)
+}
+
 func main() {
 	rand.Seed(time.Now().Unix())
 	ctx := context.Background()
@@ -125,9 +154,19 @@ func main() {
 	if err != nil {
 		log.Fatalf("Unable to open file for writing: %v", err)
 	}
+	defer fd.Close()
 
 	n, err := io.Copy(fd, fileResponse.Body)
 	if err != nil {
 		log.Fatalf("Unable to write file to disk fully (%v bytes written): %v", n, err)
 	}
+
+	twitterApi := getTwitterClient()
+
+	tweet, err := twitterApi.PostTweet("test tweet", nil)
+	if err != nil {
+		log.Fatalf("Unable to post tweet: %v", err)
+	}
+
+	fmt.Println(tweet)
 }
