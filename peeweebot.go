@@ -5,7 +5,6 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"flag"
-	"fmt"
 	"io"
 	"io/ioutil"
 	"log"
@@ -137,7 +136,6 @@ func main() {
 	fileList := getAllChildren(driveService, folderId)
 
 	fileNumber := rand.Intn(len(fileList))
-	fmt.Printf("selected %vth file\n", fileNumber)
 	selectedFile := fileList[fileNumber]
 
 	fileResponse, err := driveService.Files.Get(selectedFile.Id).Download()
