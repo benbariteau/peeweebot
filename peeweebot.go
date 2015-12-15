@@ -125,14 +125,7 @@ func getTwitterClient() *anaconda.TwitterApi {
 	)
 }
 
-func main() {
-	rand.Seed(time.Now().Unix())
-	ctx := context.Background()
-	driveService, err := getGoogleDriveService(ctx)
-	if err != nil {
-		log.Fatalf("Unable to get google drive service: %v", err)
-	}
-
+func tweetRandomPicture(driveService *drive.Service, twitterApi *anaconda.TwitterApi) {
 	fileList := getAllChildren(driveService, folderId)
 
 	fileNumber := rand.Intn(len(fileList))
@@ -143,8 +136,6 @@ func main() {
 		log.Fatalf("Unable to fetch file: %v", err)
 	}
 	defer fileResponse.Body.Close()
-
-	twitterApi := getTwitterClient()
 
 	buffer := new(bytes.Buffer)
 	writer := base64.NewEncoder(base64.StdEncoding, buffer)
@@ -166,4 +157,16 @@ func main() {
 	if err != nil {
 		log.Fatalf("Unable to post tweet: %v", err)
 	}
+}
+
+func main() {
+	rand.Seed(time.Now().Unix())
+	ctx := context.Background()
+	driveService, err := getGoogleDriveService(ctx)
+	if err != nil {
+		log.Fatalf("Unable to get google drive service: %v", err)
+	}
+	twitterApi := getTwitterClient()
+
+	tweetRandomPicture(driveService, twitterApi)
 }
